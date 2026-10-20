@@ -96,7 +96,7 @@ class Application:
             log_crash(e)
             return
 
-        self.oled._init_display()
+        self.oled.init_display()
 
     def init_wifi(self):
         try:
