@@ -4,6 +4,7 @@ import network
 import machine
 
 import config
+from oled import OLED
 
 
 SSID = config.SSID
@@ -41,6 +42,9 @@ class Application:
 
         self.watchdog = watchdog
 
+        self.oled = None
+        self.init_oled()
+
     def run(self):
         while True:
             watchdog.feed()
@@ -50,6 +54,20 @@ class Application:
                 self.last_blink = time.ticks_ms()
 
             time.sleep_ms(MAIN_LOOP_SLEEP_MS)
+
+    def init_oled(self):
+        try:
+            self.oled = OLED()
+        except Exception as e:
+            log_crash(e)
+            return
+
+        self.oled._init_display()
+
+
+    def draw(self, *rows):
+        if self.oled:
+            self.oled.lines(*rows)
 
 
 watchdog = Watchdog()
@@ -72,6 +90,7 @@ def run():
 
     try:
         app = Application(watchdog)
+        app.draw("Booting...")
         app.run()
     except Exception as e:
         log_crash(e)
