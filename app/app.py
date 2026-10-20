@@ -5,10 +5,8 @@ import machine
 
 import config
 from oled import OLED
+from wifi import Wifi
 
-
-SSID = config.SSID
-PASSWORD = config.PASSWORD
 
 WATCHDOG_TIMER = {
     'ENABLED': True,
@@ -45,15 +43,32 @@ class Application:
         self.oled = None
         self.init_oled()
 
+        self.wifi = None
+        self.init_wifi()
+
     def run(self):
+        if self.wifi:
+            self.wifi.connect()
+
         while True:
             watchdog.feed()
 
-            if time.ticks_diff(time.ticks_ms(), self.last_blink) >= BLINK_MS:
-                self.led.toggle()
-                self.last_blink = time.ticks_ms()
+            if self.wifi:
+                if self.wifi.connected():
+                    self.led.value(1)
+                else:
+                    self.blink_led()
+
+                self.wifi.poll()
+                status = self.wifi.status()
+                self.draw(f"Wifi: {status[0]}", *status[1:])
 
             time.sleep_ms(MAIN_LOOP_SLEEP_MS)
+
+    def blink_led(self):
+        if time.ticks_diff(time.ticks_ms(), self.last_blink) >= BLINK_MS:
+            self.led.toggle()
+            self.last_blink = time.ticks_ms()
 
     def init_oled(self):
         try:
@@ -64,6 +79,12 @@ class Application:
 
         self.oled._init_display()
 
+    def init_wifi(self):
+        try:
+            self.wifi = Wifi()
+        except Exception as e:
+            log_crash(e)
+            return
 
     def draw(self, *rows):
         if self.oled:

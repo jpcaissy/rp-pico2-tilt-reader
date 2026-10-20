@@ -9,7 +9,7 @@ run:
 
 # Copy everything in app/ to the board and reboot so main.py starts
 deploy:
-	$(MP) cp app/app.py app/ble_scan.py app/config.py app/manifest.py app/oled.py : + reset
+	$(MP) cp app/app.py app/ble_scan.py app/config.py app/manifest.py app/oled.py app/wifi.py : + reset
 
 # Interactive REPL (Ctrl-] to exit)
 repl:
