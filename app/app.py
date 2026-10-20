@@ -2,11 +2,13 @@ import sys
 import time
 import network
 import machine
+import binascii
 
 import config
 from oled import OLED
 from wifi import Wifi
 from ble_scan import Scanner
+from mqtt import MQTTClient
 
 
 WATCHDOG_TIMER = {
@@ -20,6 +22,7 @@ RESTART_DELAY_S = 1
 BLINK_MS = 500
 
 MAIN_LOOP_SLEEP_MS = 50
+MQTT_TOPIC = "fermentation"
 
 
 class Watchdog:
@@ -49,6 +52,9 @@ class Application:
 
         self.scanner = None
         self.init_scanner()
+
+        self.mqtt = None
+        self.init_mqtt()
 
     def run(self):
         if self.wifi:
@@ -80,10 +86,18 @@ class Application:
                 for _label, device in sorted_devices:
                     rows.append(f"{device.label}: {round(device.temperature)}c {device.gravity} last seen {round(time.ticks_diff(time.ticks_ms(), device.timestamp) / 1000)}s")
 
+            if self.wifi.connected():
+                self.mqtt.connect()
+                self.mqtt.publish(f"{MQTT_TOPIC}/status", b"toggle")
+                self.mqtt.disconnect()
+
             rows.append(f"Up {self.uptime()}")
             self.draw(*rows)
 
             time.sleep_ms(MAIN_LOOP_SLEEP_MS)
+
+        if self.mqtt:
+            self.mqtt.disconnect()
 
     def uptime(self):
         s = time.ticks_diff(time.ticks_ms(), self.start) // 1000
@@ -118,6 +132,13 @@ class Application:
     def init_scanner(self):
         try:
             self.scanner = Scanner()
+        except Exception as e:
+            log_crash(e)
+            return
+
+    def init_mqtt(self):
+        try:
+            self.mqtt = MQTTClient(binascii.hexlify(machine.unique_id()), "10.31.112.10", keepalive=1)
         except Exception as e:
             log_crash(e)
             return

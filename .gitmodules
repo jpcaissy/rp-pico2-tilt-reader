@@ -2,3 +2,6 @@
 	path = micropython
 	url = https://github.com/micropython/micropython.git
 	branch = v1.26-release
+[submodule "micropython-lib"]
+	path = micropython-lib
+	url = https://github.com/micropython/micropython-lib.git
