@@ -80,9 +80,19 @@ class Application:
                 for _label, device in sorted_devices:
                     rows.append(f"{device.label}: {round(device.temperature)}c {device.gravity} last seen {round(time.ticks_diff(time.ticks_ms(), device.timestamp) / 1000)}s")
 
+            rows.append(f"Up {self.uptime()}")
             self.draw(*rows)
 
             time.sleep_ms(MAIN_LOOP_SLEEP_MS)
+
+    def uptime(self):
+        s = time.ticks_diff(time.ticks_ms(), self.start) // 1000
+        d, s = divmod(s, 86400)
+        h, s = divmod(s, 3600)
+        m, s = divmod(s, 60)
+        if d:
+            return "%dd %dh %dm" % (d, h, m)
+        return "%dh %02dm %02ds" % (h, m, s)
 
     def blink_led(self):
         if time.ticks_diff(time.ticks_ms(), self.last_blink) >= BLINK_MS:
