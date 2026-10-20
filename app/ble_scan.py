@@ -5,8 +5,8 @@ import struct
 import time
 
 SCAN_MS = 3_000           # length of one scan window
-INTERVAL_SCAN_US = 50_000 # Scan every 0.05s
-WINDOW_SCAN_MS = 20_000   # One scan window is 0.2s
+INTERVAL_SCAN_US = 500_000 # Scan every 0.5s
+WINDOW_SCAN_MS = 100_000   # One scan window is 0.1s
 
 STALE_DEVICES_MS = 120_000    # Drop device from the list after 120 seconds
 
@@ -88,9 +88,7 @@ class Scanner:
             return None
 
         label = "Pill %02X%02X" % (addr[4], addr[5])
-        beacon = Beacon(label, temp_raw / 128 - 273.15, gravity, battery, time.ticks_ms())
-
-        print(f"{beacon=}")
+        beacon = Beacon(label, temp_raw / 128 - 273.15, round(gravity, 4), battery, time.ticks_ms())
 
         return beacon
 
@@ -112,11 +110,10 @@ class Scanner:
 
         if minor >= 5000:
             # Minor >= 5000 means tilt pro, did not test
-            beacon = Beacon(COLORS[data[7]], f_to_c(major), minor / 10_000, None)
+            beacon = Beacon(f"Tilt {COLORS[data[7]]}", f_to_c(major), minor / 10_000, None)
         else:
-            beacon = Beacon(COLORS[data[7]], f_to_c(major), minor / 1000, None, time.ticks_ms())
+            beacon = Beacon(f"Tilt {COLORS[data[7]]}", f_to_c(major), minor / 1000, None, time.ticks_ms())
 
-        print(f"{beacon=}")
         return beacon
 
 
@@ -138,7 +135,7 @@ class Scanner:
             self.state = "Scanning"
             now = time.ticks_ms()
             stale_devices = []
-            for device in self.devices:
+            for device in self.devices.values():
                 if time.ticks_diff(now, device.timestamp) >= STALE_DEVICES_MS:
                     stale_devices.append(device.label)
             for label in stale_devices:
@@ -146,5 +143,5 @@ class Scanner:
 
             self.scan()
 
-    def sorted_devices():
+    def sorted_devices(self):
         return sorted(self.devices.items())

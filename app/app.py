@@ -6,6 +6,7 @@ import machine
 import config
 from oled import OLED
 from wifi import Wifi
+from ble_scan import Scanner
 
 
 WATCHDOG_TIMER = {
@@ -46,13 +47,20 @@ class Application:
         self.wifi = None
         self.init_wifi()
 
+        self.scanner = None
+        self.init_scanner()
+
     def run(self):
         if self.wifi:
             self.wifi.connect()
 
+        if self.scanner:
+            self.scanner.start()
+
         while True:
             watchdog.feed()
 
+            rows = []
             if self.wifi:
                 if self.wifi.connected():
                     self.led.value(1)
@@ -61,7 +69,18 @@ class Application:
 
                 self.wifi.poll()
                 status = self.wifi.status()
-                self.draw(f"Wifi: {status[0]}", *status[1:])
+                rows.append(f"Wifi: {status[0]}")
+                rows.extend(status[1:])
+
+            if self.scanner:
+                self.scanner.poll()
+                rows.append("")
+                rows.append(f"{len(self.scanner.devices)} device found")
+                sorted_devices = self.scanner.sorted_devices()[:3]
+                for _label, device in sorted_devices:
+                    rows.append(f"{device.label}: {round(device.temperature)}c {device.gravity} last seen {round(time.ticks_diff(time.ticks_ms(), device.timestamp) / 1000)}s")
+
+            self.draw(*rows)
 
             time.sleep_ms(MAIN_LOOP_SLEEP_MS)
 
@@ -82,6 +101,13 @@ class Application:
     def init_wifi(self):
         try:
             self.wifi = Wifi()
+        except Exception as e:
+            log_crash(e)
+            return
+
+    def init_scanner(self):
+        try:
+            self.scanner = Scanner()
         except Exception as e:
             log_crash(e)
             return
