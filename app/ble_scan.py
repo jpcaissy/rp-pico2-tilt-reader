@@ -4,11 +4,11 @@ import bluetooth
 import struct
 import time
 
-SCAN_MS = 3_000           # length of one scan window
+SCAN_MS = 3_000            # Total scan window is 3 seconds
 INTERVAL_SCAN_US = 500_000 # Scan every 0.5s
 WINDOW_SCAN_MS = 100_000   # One scan window is 0.1s
 
-STALE_DEVICES_MS = 120_000    # Drop device from the list after 120 seconds
+STALE_DEVICES_MS = 300_000    # Drop device from the list after 5 minutes
 
 _IRQ_SCAN_RESULT = 5
 _IRQ_SCAN_DONE = 6
@@ -38,10 +38,7 @@ class Scanner:
     def __init__(self):
         self.ble = bluetooth.BLE()
         self.devices = {}
-        self.scans = 0
-        self.state = "Off"
-        self.last_scan = None
-        self.last_beacon = None     # ticks_ms of the last Tilt/Pill reading
+        self.scanning = False
 
     def start(self):
         self.ble.active(True)
@@ -50,10 +47,10 @@ class Scanner:
 
     def scan(self):
         try:
-            self.state = "Scanning"
+            self.scanning = True
             self.ble.gap_scan(SCAN_MS, INTERVAL_SCAN_US, WINDOW_SCAN_MS, False)
         except OSError:
-            self.state = "Error"
+            self.scanning = False
 
     def parse_adv(self, adv, addr):
         b = bytes(adv)
@@ -122,17 +119,13 @@ class Scanner:
             _addr_type, addr, _adv_type, rssi, adv = data
             result = self.parse_adv(adv, addr)
             if result:
-                now = time.ticks_ms()
-                self.last_beacon = now
                 self.devices[result.label] = result
         elif event == _IRQ_SCAN_DONE:
-            self.scans += 1
-            self.last_scan = time.ticks_ms()
-            self.state = "Waiting"
+            self.scanning = False
 
     def poll(self):
-        if self.state != "Scanning":
-            self.state = "Scanning"
+        if not self.scanning:
+            self.scanning = True
             now = time.ticks_ms()
             stale_devices = []
             for device in self.devices.values():
