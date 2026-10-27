@@ -18,17 +18,17 @@ _HEAD = b"\xa4\x95\xbb"
 _TAIL = b"\xc5\xb1\x4b\x44\xb5\x12\x13\x70\xf0\x2d\x74\xde"
 
 COLORS = {
-    0x10: "Red",
-    0x20: "Green",
-    0x30: "Black",
-    0x40: "Purple",
-    0x50: "Orange",
-    0x60: "Blue",
-    0x70: "Yellow",
-    0x80: "Pink",
+    0x10: "red",
+    0x20: "green",
+    0x30: "black",
+    0x40: "purple",
+    0x50: "orange",
+    0x60: "blue",
+    0x70: "yellow",
+    0x80: "pink",
 }
 
-Beacon = namedtuple("Beacon", ["label", "temperature", "gravity", "battery", "timestamp"]) # temperature is in celcius
+Beacon = namedtuple("Beacon", ["label", "type", "temperature", "gravity", "battery", "timestamp"]) # temperature is in celcius
 
 def f_to_c(f):
     return round((f - 32) * (5/9), 1)
@@ -84,8 +84,8 @@ class Scanner:
         if not (0.5 < gravity < 2.0):
             return None
 
-        label = "Pill %02X%02X" % (addr[4], addr[5])
-        beacon = Beacon(label, temp_raw / 128 - 273.15, round(gravity, 4), battery, time.ticks_ms())
+        label = "%02X%02X" % (addr[4], addr[5])
+        beacon = Beacon(label, "pill", temp_raw / 128 - 273.15, round(gravity, 4), battery, time.ticks_ms())
 
         return beacon
 
@@ -107,9 +107,9 @@ class Scanner:
 
         if minor >= 5000:
             # Minor >= 5000 means tilt pro, did not test
-            beacon = Beacon(f"Tilt {COLORS[data[7]]}", f_to_c(major), minor / 10_000, None)
+            beacon = Beacon(COLORS[data[7]], "tilt", f_to_c(major), minor / 10_000, None)
         else:
-            beacon = Beacon(f"Tilt {COLORS[data[7]]}", f_to_c(major), minor / 1000, None, time.ticks_ms())
+            beacon = Beacon(COLORS[data[7]], "tilt", f_to_c(major), minor / 1000, None, time.ticks_ms())
 
         return beacon
 

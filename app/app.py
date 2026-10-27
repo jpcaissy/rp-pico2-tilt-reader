@@ -2,7 +2,7 @@ import sys
 import time
 import network
 import machine
-import binascii
+import json
 
 import config
 from oled import OLED
@@ -25,7 +25,8 @@ BLINK_MS = 500
 MAIN_LOOP_SLEEP_MS = 50
 
 MQTT_TOPIC = "fermentation"
-MQTT_INTERVAL_MS = 60_000
+MQTT_INTERVAL_MS = 180_000 # 180s/3min, stale device is 5 minutes
+MQTT_INTERVAL_HEALTHCHECK_MS = 60_000 # 60s
 
 
 class Watchdog:
@@ -42,7 +43,7 @@ class Watchdog:
 
 class Application:
     def __init__(self, watchdog):
-        self.start = self.last_blink = self.last_mqtt = time.ticks_ms()
+        self.start = self.last_blink = self.last_mqtt = self.last_mqtt_healthcheck = time.ticks_ms()
         self.led = machine.Pin("LED", machine.Pin.OUT)
 
         self.watchdog = watchdog
@@ -88,12 +89,25 @@ class Application:
                 self.mqtt.poll()
                 if self.mqtt.connected:
                     rows.append(f"MQTT connected")
+                    if time.ticks_diff(time.ticks_ms(), self.last_mqtt_healthcheck) > MQTT_INTERVAL_HEALTHCHECK_MS:
+                        self.mqtt.publish(f"{MQTT_TOPIC}/status", b"online")
+                        self.last_mqtt_healthcheck = time.ticks_ms()
                     if time.ticks_diff(time.ticks_ms(), self.last_mqtt) > MQTT_INTERVAL_MS:
-                        self.mqtt.publish(f"{MQTT_TOPIC}/status", b"toggle")
+                        for device in self.scanner.devices.values():
+                            msg = {
+                                "label": device.label,
+                                "temperature": device.temperature,
+                                "gravity": device.gravity,
+                            }
+                            if device.type == "pill":
+                                msg["battery"] = device.battery
+
+                            self.mqtt.publish(f"{MQTT_TOPIC}/{device.type}/{device.label}", json.dumps(msg))
                         self.last_mqtt = time.ticks_ms()
+
                 else:
                     if self.mqtt.last_error:
-                        rows.append(f"MQTT: {self.mqtt.last_error}")
+                        rows.append(f"MQTT {self.mqtt.last_error}")
                     else:
                         rows.append(f"MQTT not connected")
             else:
@@ -103,7 +117,7 @@ class Application:
                 self.scanner.poll()
                 rows.append("")
                 rows.append(f"{len(self.scanner.devices)} device found")
-                sorted_devices = self.scanner.sorted_devices()[:3]
+                sorted_devices = self.scanner.sorted_devices()[:2]
                 for _label, device in sorted_devices:
                     rows.append(f"{device.label}: {round(device.temperature)}c {device.gravity} last seen {round(time.ticks_diff(time.ticks_ms(), device.timestamp) / 1000)}s")
             else:
@@ -154,7 +168,7 @@ class Application:
     def init_mqtt(self):
         try:
             if self.wifi:
-                self.mqtt = Mqtt(self.wifi, config.MQTT_SERVER, will=(b"fermenter/status", b"offline", True))
+                self.mqtt = Mqtt(self.wifi, config.MQTT_SERVER, will=(f"{MQTT_TOPIC}/status".encode(), b"offline", True))
         except Exception as e:
             log_crash(e)
             return
