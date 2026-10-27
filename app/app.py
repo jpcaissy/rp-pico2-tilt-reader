@@ -154,7 +154,7 @@ class Application:
     def init_mqtt(self):
         try:
             if self.wifi:
-                self.mqtt = Mqtt(self.wifi, "10.31.112.10", will=(b"fermenter/status", b"offline", True))
+                self.mqtt = Mqtt(self.wifi, config.MQTT_SERVER, will=(b"fermenter/status", b"offline", True))
         except Exception as e:
             log_crash(e)
             return
