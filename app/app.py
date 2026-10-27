@@ -89,7 +89,6 @@ class Application:
                 if self.mqtt.connected:
                     rows.append(f"MQTT connected")
                     if time.ticks_diff(time.ticks_ms(), self.last_mqtt) > MQTT_INTERVAL_MS:
-                        print("published")
                         self.mqtt.publish(f"{MQTT_TOPIC}/status", b"toggle")
                         self.last_mqtt = time.ticks_ms()
                 else:
@@ -156,9 +155,6 @@ class Application:
         try:
             if self.wifi:
                 self.mqtt = Mqtt(self.wifi, "10.31.112.10", will=(b"fermenter/status", b"offline", True))
-            else:
-                print("No mqtt")
-                pass
         except Exception as e:
             log_crash(e)
             return
